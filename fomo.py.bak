@@ -1,0 +1,273 @@
+import requests
+import json
+import brotli  # Make sure to install this package if you haven't
+import webbrowser
+import time
+
+def read_token_and_at():
+    try:
+        with open("query.txt", "r") as file:
+            lines = file.readlines()
+            if not lines or len(lines) < 1:
+                print("Error: query.txt must contain at least one line (tg value).")
+                return None, None
+            
+            tg_data = lines[0].strip()
+            # Extract the at value by taking the first 20 characters
+            at_value = tg_data[19:29] if len(tg_data) >= 39 else None
+            
+            return tg_data, at_value
+    except FileNotFoundError:
+        print("Error: query.txt file not found.")
+        return None, None
+
+def check_user_info():
+    url = "https://appipa.fomo.fund/v1/profile"
+    tg, at = read_token_and_at()
+
+    if tg is None or at is None:
+        return
+
+    headers = {
+        "accept": "application/json, text/plain, */*",
+        "accept-encoding": "gzip, deflate, br, zstd",
+        "accept-language": "en-US,en;q=0.9",
+        "At": at,
+        "origin": "https://app.fomo.fund",
+        "priority": "u=1, i",
+        "referer": "https://app.fomo.fund/",
+        "sec-ch-ua": '"Microsoft Edge";v="129", "Not=A?Brand";v="8", "Chromium";v="129", "Microsoft Edge WebView2";v="129"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-site",
+        "tg": tg,
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0",
+    }
+
+    try:
+        response = requests.get(url, headers=headers)
+        print(f"Response Status: {response.status_code}")
+        print("Sukses get task")
+        #print("Response Content:", response.content.decode('utf-8', errors='replace'))
+
+        if response.status_code != 200:
+            print("Error: Received non-200 response.")
+            return
+
+        try:
+            user_info = response.json()
+            print("Sukses Parsing JSON Respon")
+            #print("Parsed JSON Response:", user_info)
+        except ValueError:
+            print("Error parsing JSON response. Response might not be valid JSON.")
+            return
+
+        user = user_info.get("data", {})
+        print(f"User ID: {user.get('id')}")
+        print(f"Username: {user.get('username')}")
+        print(f"Total Points: {user.get('points', {}).get('$numberDecimal', '0')}")
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error: {e}")
+
+def fetch_tasks():
+    url = "https://appipa.fomo.fund/v1/profile/tasks"
+    tg, at = read_token_and_at()
+
+    if tg is None or at is None:
+        return None  # Return None if token or 'at' is not available
+
+    headers = {
+        "accept": "application/json, text/plain, */*",
+        "accept-encoding": "gzip, deflate, br, zstd",
+        "accept-language": "en-US,en;q=0.9",
+        "At": at,
+        "origin": "https://app.fomo.fund",
+        "priority": "u=1, i",
+        "referer": "https://app.fomo.fund/",
+        "sec-ch-ua": '"Microsoft Edge";v="129", "Not=A?Brand";v="8", "Chromium";v="129", "Microsoft Edge WebView2";v="129"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-site",
+        "tg": tg,
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0",
+    }
+
+    try:
+        response = requests.get(url, headers=headers)
+        print(f"Sending request to: {url}")
+        print("With headers:", headers)
+
+        #print(f"Response Status: {response.status_code}")
+
+        if response.status_code == 200:
+            try:
+                data_tasks = response.json()  # Parse JSON directly
+                print("Sukses Retrieved task")
+                #print("Retrieved Tasks:", data_tasks)
+
+                # Check if there are any active tasks
+                if data_tasks['status'] == "ok" and 'docs' in data_tasks['data']:
+                    return data_tasks['data']['docs']  # Return the list of tasks
+                else:
+                    print("No tasks found or an error occurred.")
+                    return None
+            except json.JSONDecodeError as e:
+                print(f"JSON response parsing error: {e}")
+                print("Raw Content:", response.content.decode('utf-8', errors='replace'))
+        else:
+            print("Error retrieving tasks, status code:", response.status_code)
+            return None
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error: {e}")
+        return None
+
+def clear_task(first_task_id, linkquest,status):
+    print(f"Attempting to clear task with ID: {first_task_id}")
+    print(f"Opening task link: {linkquest}")
+    task_status = status["status"]
+    
+    tg, at = read_token_and_at()
+
+    if tg is None or at is None:
+        return
+
+    headers = {
+        "accept": "application/json, text/plain, */*",
+        "accept-encoding": "gzip, deflate, br, zstd",
+        "accept-language": "en-US,en;q=0.9",
+        "At": at,
+        "content-length":"33",
+        "content-type":"application/json",
+        "origin": "https://app.fomo.fund",
+        "priority": "u=1, i",
+        "referer": "https://app.fomo.fund/",
+        "sec-ch-ua": '"Microsoft Edge";v="129", "Not=A?Brand";v="8", "Chromium";v="129", "Microsoft Edge WebView2";v="129"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-site",
+        "tg": tg,
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0",
+    }
+
+    # Open the link in a browser
+    webbrowser.open(linkquest)
+    print(f"Opened the task link: {linkquest}")
+    time.sleep(10)  # Wait for 10 seconds
+
+    # Claim the reward
+    # Getting Task
+    payload = {"id": first_task_id}
+    getingtask = f"https://appipa.fomo.fund/v1/profile/tasks/{first_task_id}"
+    print(f"Getting task with payload: {payload}")
+    getingtask = requests.post(getingtask, json=payload, headers=headers)
+    print(getingtask.status_code)
+    print("##################")
+    print("##################")
+    if task_status == "in-progress":
+        # Claim the reward
+        claim_url = f"https://appipa.fomo.fund/v1/profile/tasks/{first_task_id}/claim"
+        payload = {"id": first_task_id}
+
+        claim_response = requests.post(claim_url, json=payload, headers={"accept": "application/json"})
+
+        if claim_response.status_code == 201:
+            claim_data = claim_response.json()
+            if claim_data.get("status") == "ok" and claim_data["data"].get("status") == "ok":
+                print("Claim successful!")
+            else:
+                print("Task already claimed or error:", claim_data)
+        else:
+            print("Error claiming reward, status code:", claim_response.status_code)
+            print("Response:", claim_response.json())  # Show the full response for debugging
+
+    elif task_status == "claim":
+        print("The task has already been claimed.")
+    elif task_status == "pending":
+        print("Please complete the task manually.")
+    else:
+        print(f"Unexpected task status: {task_status}")
+
+
+    if getingtask.status_code == 201:  # Check for successful claim
+        getingtask = getingtask.json()  # Parse the JSON response
+    else:
+        print("Error Getting task reward, status code:", getingtask.status_code)
+        print("Response:", getingtask.json())  # Show the full response for debugging
+    
+    
+    print("##################")
+    print("Pemisah Claiming dan Getting")
+    print("##################")
+    claim_url = f"https://appipa.fomo.fund/v1/profile/tasks/66fd77aafa2242c2b724322a/claim"
+    print(f"Claiming task with payload: {payload}")
+    
+    claim_response = requests.post(claim_url, json=payload, headers=headers)
+    print(claim_response.status_code)
+    if claim_response.status_code == 201:  # Check for successful claim
+        claim_data = claim_response.json()  # Parse the JSON response
+        if claim_data.get("status") == "ok" and claim_data["data"].get("status") == "ok":
+            print("Claim successful!")
+            check_points()  # Call to check the points after claiming
+        else:
+            print("Error claiming reward:", claim_data)  # Show the error response if it doesn't match
+    else:
+        print("Error claiming reward, status code:", claim_response.status_code)
+        print("Response:", claim_response.json())  # Show the full response for debugging
+
+
+
+def check_points():
+    url = "https://appipa.fomo.fund/v1/profile"
+    tg, at = read_token_and_at()
+
+    headers = {
+        "accept": "application/json, text/plain, */*",
+        "accept-encoding": "gzip, deflate, br, zstd",
+        "accept-language": "en-US,en;q=0.9",
+        "At": at,
+        "origin": "https://app.fomo.fund",
+        "priority": "u=1, i",
+        "referer": "https://app.fomo.fund/",
+        "sec-ch-ua": '"Microsoft Edge";v="129", "Not=A?Brand";v="8", "Chromium";v="129", "Microsoft Edge WebView2";v="129"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-site",
+        "tg": tg,
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0",
+    }
+
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        user_info = response.json()
+        print("Total Points:", user_info['data'].get('points', {}).get('$numberDecimal', '0'))
+    else:
+        print("Error fetching user points.")
+
+if __name__ == "__main__":
+    check_user_info()
+    tasks = fetch_tasks()  # Store the fetched tasks for later use
+
+    if tasks:
+        # Iterate through the tasks and clear each one
+        for task in tasks:
+            if task['status'] == "pending":  # Check if the task is still pending
+                first_task_id = task['_id']
+                linkquest = task['link']
+
+                # Call clear_task with the task's ID and link
+                clear_task(first_task_id, linkquest)
+            else:
+                print(f"Task {task['_id']} is not pending. Skipping.")
+    else:
+        print("No active tasks available.")
